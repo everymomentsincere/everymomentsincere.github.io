@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>2026 Flip Album Player</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --active-shadow: 0 15px 40px -10px rgba(0, 0, 0, 0.5);
+            --inactive-shadow: 0 5px 15px -3px rgba(0, 0, 0, 0.3);
+            --transition-curve: cubic-bezier(0.25, 1, 0.5, 1);
+            --glass-bg: rgba(242, 240, 230, 0.75);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            color: var(--text-primary);
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;
+        }
+
+        body::before {
+            content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('img/wall.png'); background-size: cover; background-position: center; background-repeat: no-repeat;
+            z-index: -1; pointer-events: none;
+        }
+
+        .device-container {
+            width: 100%; max-width: 480px; height: 100dvh; margin: 0 auto; position: relative;
+            display: flex; flex-direction: column; justify-content: flex-start;
+            padding-top: calc(env(safe-area-inset-top) + 20px);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* --- 캐러셀 --- */
+        .carousel-container {
+            width: 100%; 
+            height: 380px; 
+            margin-bottom: 20px; 
+            position: relative;
+            overflow: visible; 
+            perspective: 1000px;
+        }
+
+        .carousel-track {
+            display: flex; height: 100%; padding: 0; will-change: transform;
+        }
+
+        .carousel-item {
+            flex: 0 0 60%; 
+            height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            position: relative; z-index: 1; cursor: pointer;
+        }
+
+        /* 3D 카드 */
+        .flip-card {
+            width: 90%; aspect-ratio: 1/1; position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s var(--transition-curve), box-shadow 0.5s ease;
+            border-radius: 18px;
+            transform: scale(0.85); opacity: 0.6;
+            box-shadow: var(--inactive-shadow);
+            pointer-events: none; /* 부모(carousel-item)에서 클릭 감지 */
+        }
+
+        .carousel-item.active .flip-card {
+            opacity: 1; transform: scale(1); box-shadow: var(--active-shadow); z-index: 10;
+            pointer-events: auto;
+        }
+        
+        .carousel-item.active .flip-card.flipped { transform: scale(1) rotateY(180deg); }
+        .carousel-item:not(.active) .flip-card.flipped { transform: scale(0.85) rotateY(180deg); }
+
+        .flip-face {
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0;
+            border-radius: 18px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden;
+        }
+        .flip-front { z-index: 2; transform: rotateY(0deg); }
+        .flip-back { transform: rotateY(180deg); z-index: 1; background: #fff; }
+        .album-art { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+        /* --- 콘텐츠 --- */
+        .content-wrapper { 
+            width: 100%; padding: 0 24px;
+            display: flex; flex-direction: column; 
+            margin-bottom: auto; 
+        }
+        
+        .track-info { text-align: center; margin-bottom: 30px; min-height: 60px; }
+        
+        .track-title { 
+            font-size: 24px; font-weight: 700; margin-bottom: 6px; 
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8); 
+            transition: opacity 0.3s ease; 
+        }
+        
+        .track-artist { 
+            font-size: 16px; color: var(--text-secondary); font-weight: 500; 
+            transition: opacity 0.2s ease;
+        }
+
+        .fade-out { opacity: 0; }
+
+        /* 재생 바 */
+        .progress-wrapper { 
+            width: 100%; margin-bottom: 40px; cursor: pointer; padding: 10px 0; user-select: none;
+        }
+        .progress-track { width: 100%; height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; overflow: hidden; position: relative; }
+        .progress-fill { width: 0%; height: 100%; background: var(--text-secondary); border-radius: 3px; pointer-events: none; }
+        .progress-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+
+        /* 컨트롤러 */
+        .controls { 
+            display: flex; justify-content: center; align-items: center; gap: 30px; 
+            margin-bottom: 40px;
+        }
+        .btn-control { background: none; border: none; cursor: pointer; color: var(--text-primary); font-size: 30px; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
+        .btn-control:active { transform: scale(0.85); }
+        .btn-play { font-size: 58px; }
+
+        /* 하단 액션 버튼 */
+        .bottom-actions { display: flex; justify-content: space-between; align-items: center; }
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            color: var(--text-primary); transition: transform 0.1s, background 0.2s; cursor: pointer; text-decoration: none;
+        }
+        .glass-btn:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.4); }
+        .youtube-chip { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 24px; font-weight: 600; font-size: 15px; }
+        .lyrics-btn { width: 52px; height: 52px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 24px; }
+
+        /* 가사 오버레이 */
+        .lyrics-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(242, 240, 230, 0.6); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            z-index: 100; transform: translateY(110%); transition: transform 0.6s var(--transition-curve);
+            display: flex; flex-direction: column; padding-top: env(safe-area-inset-top);
+            border-top: 1px solid rgba(255,255,255,0.3);
+        }
+        .lyrics-overlay.show { transform: translateY(0); }
+        .lyrics-header { display: flex; align-items: center; padding: 15px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.1); flex-shrink: 0; }
+        .mini-art { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; margin-right: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .mini-info { flex: 1; }
+        .mini-title { font-size: 16px; font-weight: 600; }
+        .mini-desc { font-size: 13px; color: var(--text-secondary); }
+        .btn-close { width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(0,0,0,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--text-secondary); }
+        .lyrics-scroll-area { flex: 1; overflow-y: auto; padding: 40px 32px calc(env(safe-area-inset-bottom) + 80px) 32px; scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%); }
+        .letter-content p { font-size: 22px; font-weight: 700; line-height: 1.8; color: var(--text-primary); opacity: 0.9; margin-bottom: 40px; text-align: left; text-shadow: 0 1px 1px rgba(255,255,255,0.5); }
+    </style>
+</head>
+<body>
+
+    <div class="device-container">
+        <div class="carousel-container" id="carouselWrapper">
+            <div class="carousel-track" id="carouselTrack"></div>
+        </div>
+
+        <div class="content-wrapper">
+            <div class="track-info" id="trackInfo">
+                <div class="track-title" id="titleEl">Loading...</div>
+                <div class="track-artist" id="artistEl">Please wait</div>
+            </div>
+
+            <div class="progress-wrapper" id="progressWrapper">
+                <div class="progress-track" id="progressTrack">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-labels">
+                    <span id="currentTimeEl">1</span>
+                    <span id="totalTimeEl">-</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-control" id="prevBtn"><i class="ri-skip-back-fill"></i></button>
+                <button class="btn-control btn-play" id="playPauseBtn"><i class="ri-play-fill"></i></button>
+                <button class="btn-control" id="nextBtn"><i class="ri-skip-forward-fill"></i></button>
+            </div>
+
+            <div class="bottom-actions">
+                <a href="#" class="glass-btn youtube-chip" target="_blank" id="youtubeBtn">
+                    <i class="ri-youtube-fill" style="color: #FF0000; font-size: 20px;"></i>
+                    YouTube
+                </a>
+                <button class="glass-btn lyrics-btn" id="openLyricsBtn">
+                    <i class="ri-message-3-line"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="lyrics-overlay" id="lyricsOverlay">
+        <div class="lyrics-header">
+            <img src="" class="mini-art" id="miniArt">
+            <div class="mini-info">
+                <div class="mini-title" id="letterTitleEl">Loading...</div>
+                <div class="mini-desc" id="letterSubtitleEl">...</div>
+            </div>
+            <button class="btn-close" id="closeLyricsBtn"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="lyrics-scroll-area" id="lyricsScrollArea">
+            <div class="letter-content" id="letterContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 설정 ---
+        let albumData = [];
+        let letterData = [];
+        let youtubeUrl = "#"; 
+        
+        // [중요] 왼쪽에 2개 클론 추가 -> 시작 인덱스는 2 (Real 1번)
+        const CLONE_COUNT = 2; 
+        let currentIndex = CLONE_COUNT; 
+        let totalSlides = 0;
+        
+        let isPlaying = false;
+        let lastFrameTime = 0;
+        let SLIDE_DURATION = 3000; 
+        let currentSlideTime = 0; 
+        let animationFrameId;
+
+        let isDragging = false;
+
+        const track = document.getElementById('carouselTrack');
+        const wrapper = document.getElementById('carouselWrapper');
+        const titleEl = document.getElementById('titleEl');
+        const artistEl = document.getElementById('artistEl');
+        const progressWrapper = document.getElementById('progressWrapper');
+        const progressTrack = document.getElementById('progressTrack');
+        const progressFill = document.getElementById('progressFill');
+        const currentTimeEl = document.getElementById('currentTimeEl');
+        const totalTimeEl = document.getElementById('totalTimeEl');
+        const playIcon = document.getElementById('playPauseBtn').querySelector('i');
+        const lyricsOverlay = document.getElementById('lyricsOverlay');
+        const letterContent = document.getElementById('letterContent');
+        const lyricsScrollArea = document.getElementById('lyricsScrollArea');
+        const miniArt = document.getElementById('miniArt');
+        const letterTitleEl = document.getElementById('letterTitleEl');
+        const letterSubtitleEl = document.getElementById('letterSubtitleEl');
+        const youtubeBtn = document.getElementById('youtubeBtn');
+
+        // --- 1. 데이터 로드 ---
+        async function loadData() {
+            try {
+                const response = await fetch('data.json');
+                const json = await response.json();
+                
+                albumData = json.albums;
+                letterData = json.letter;
+                
+                if (json.duration) SLIDE_DURATION = json.duration * 1000;
+                if (json.letterTitle) letterTitleEl.innerText = json.letterTitle;
+                if (json.letterSubtitle) letterSubtitleEl.innerText = json.letterSubtitle;
+                if (json.youtubeUrl) {
+                    youtubeUrl = json.youtubeUrl;
+                    youtubeBtn.href = youtubeUrl;
+                }
+
+                if (albumData && albumData.length > 0) {
+                    initCarousel();
+                    initLetter();
+                }
+            } catch (error) {
+                console.error("Load Error:", error);
+            }
+        }
+
+        function initLetter() {
+            letterContent.innerHTML = letterData.map(line => `<p>${line}</p>`).join('');
+            if(albumData[0]) miniArt.src = getImagePath(albumData[0].image);
+        }
+
+        function getImagePath(imageName) {
+            return `photo/${imageName}`;
+        }
+
+        function initCarousel() {
+            totalSlides = albumData.length;
+            totalTimeEl.innerText = totalSlides;
+
+            track.innerHTML = '';
+            
+            // [Clone Last] 뒤쪽 2개 복사해서 앞에 붙임 (N-1, N)
+            track.appendChild(createSlide(albumData[totalSlides - 2]));
+            track.appendChild(createSlide(albumData[totalSlides - 1]));
+            
+            // [Real Items]
+            albumData.forEach((item) => {
+                track.appendChild(createSlide(item));
+            });
+            
+            // [Clone First] 앞쪽 2개 복사해서 뒤에 붙임 (1, 2)
+            track.appendChild(createSlide(albumData[0]));
+            track.appendChild(createSlide(albumData[1]));
+
+            resizeItems();
+            updatePosition(currentIndex, false);
+            updateText('init'); 
+            updateProgressBarVisual();
+            
+            setTimeout(() => track.style.opacity = '1', 100);
+        }
+
+        function createSlide(data) {
+            const div = document.createElement('div');
+            div.className = 'carousel-item';
+
+            div.innerHTML = `
+                <div class="flip-card">
+                    <div class="flip-face flip-front">
+                        <img src="${getImagePath(data.image)}" class="album-art" alt="Front">
+                    </div>
+                    <div class="flip-face flip-back">
+                        <img src="${getImagePath(data.imageRear)}" class="album-art" alt="Back">
+                    </div>
+                </div>
+            `;
+            
+            // [핵심 수정] 클릭 이벤트 로직 정상화
+            div.addEventListener('click', function() {
+                if (isDragging) return;
+
+                // 트랙 내에서의 정확한 인덱스 찾기
+                const allItems = Array.from(track.children);
+                const myIndex = allItems.indexOf(this);
+
+                if (myIndex === currentIndex) {
+                    // 중앙 앨범 클릭 -> 뒤집기 토글
+                    const card = this.querySelector('.flip-card');
+                    card.classList.toggle('flipped');
+                    updateText('flip'); 
+                } else if (myIndex > currentIndex) {
+                    moveNext();
+                } else {
+                    movePrev();
+                }
+            });
+            return div;
+        }
+
+        function resizeItems() {
+            const wrapperWidth = wrapper.offsetWidth;
+            const itemWidth = wrapperWidth * 0.60;
+            const items = document.querySelectorAll('.carousel-item');
+            items.forEach(item => {
+                item.style.width = `${itemWidth}px`;
+                item.style.flex = `0 0 ${itemWidth}px`;
+            });
+        }
+        window.addEventListener('resize', () => {
+            resizeItems();
+            updatePosition(currentIndex, false);
+        });
+
+        // --- 2. 텍스트 업데이트 ---
+        function updateText(mode = 'slide') {
+            const currentItem = document.querySelectorAll('.carousel-item')[currentIndex];
+            if (!currentItem) return;
+
+            let realDataIndex = currentIndex - CLONE_COUNT;
+            
+            // 루프 경계 처리
+            if (currentIndex < CLONE_COUNT) {
+                realDataIndex = totalSlides + (currentIndex - CLONE_COUNT);
+            } else if (currentIndex >= totalSlides + CLONE_COUNT) {
+                realDataIndex = currentIndex - totalSlides - CLONE_COUNT;
+            }
+
+            if (realDataIndex < 0) realDataIndex = totalSlides - 1;
+            if (realDataIndex >= totalSlides) realDataIndex = 0;
+
+            const data = albumData[realDataIndex];
+            const isFlipped = currentItem.querySelector('.flip-card').classList.contains('flipped');
+
+            if (mode === 'slide' || mode === 'init') {
+                titleEl.classList.add('fade-out');
+                artistEl.classList.add('fade-out');
+            } else if (mode === 'flip') {
+                artistEl.classList.add('fade-out');
+            }
+
+            setTimeout(() => {
+                if (data) {
+                    if (mode === 'slide' || mode === 'init') {
+                        titleEl.innerText = data.title;
+                    }
+                    if (isFlipped) {
+                        artistEl.innerText = data.subtitleRear;
+                    } else {
+                        artistEl.innerText = data.subtitle;
+                    }
+                }
+                
+                titleEl.classList.remove('fade-out');
+                artistEl.classList.remove('fade-out');
+            }, 200);
+
+            currentTimeEl.innerText = realDataIndex + 1;
+            if(data) miniArt.src = getImagePath(data.image);
+        }
+
+        // --- 3. 이동 및 순간이동 ---
+        function updatePosition(index, smooth = true) {
+            const items = document.querySelectorAll('.carousel-item');
+            if (!items[index]) return;
+
+            const wrapperWidth = wrapper.offsetWidth;
+            const itemWidth = items[index].offsetWidth;
+            const itemLeft = index * itemWidth;
+            const centerOffset = (wrapperWidth - itemWidth) / 2;
+            const targetTranslate = -(itemLeft - centerOffset);
+
+            if (smooth) {
+                track.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+                track.style.transform = `translateX(${targetTranslate}px)`;
+            } else {
+                track.style.transition = 'none';
+                track.style.transform = `translateX(${targetTranslate}px)`;
+                void track.offsetWidth; // Force Reflow
+            }
+
+            items.forEach((item, i) => {
+                if (i === index) item.classList.add('active');
+                else item.classList.remove('active');
+            });
+        }
+
+        function moveNext() {
+            currentIndex++;
+            updatePosition(currentIndex, true);
+            handleSlideChange();
+        }
+
+        function movePrev() {
+            currentIndex--;
+            updatePosition(currentIndex, true);
+            handleSlideChange();
+        }
+
+        function handleSlideChange() {
+            currentSlideTime = 0; 
+            updateText('slide');
+            updateProgressBarVisual(); 
+            setTimeout(() => checkInfiniteLoop(), 500);
+        }
+
+        function checkInfiniteLoop() {
+            let jumped = false;
+            // 오른쪽 끝(N+2)에 도달 -> 왼쪽(2)로 이동
+            if (currentIndex >= totalSlides + CLONE_COUNT) {
+                currentIndex = CLONE_COUNT; 
+                jumped = true;
+            } 
+            // 왼쪽 끝(1)에 도달 -> 오른쪽(N+1)로 이동
+            else if (currentIndex < CLONE_COUNT) {
+                currentIndex = totalSlides + CLONE_COUNT - 1; 
+                jumped = true;
+            }
+
+            if (jumped) {
+                updatePosition(currentIndex, false); // No animation
+            }
+        }
+
+        // --- 4. 애니메이션 Loop ---
+        function animate(timestamp) {
+            if (!isPlaying || isDragging) return;
+            
+            if (!lastFrameTime) lastFrameTime = timestamp;
+            const deltaTime = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+
+            currentSlideTime += deltaTime;
+            if (currentSlideTime >= SLIDE_DURATION) {
+                currentSlideTime = 0;
+                moveNext();
+            }
+            updateProgressBarVisual();
+            
+            if (lyricsOverlay.classList.contains('show')) {
+                lyricsScrollArea.scrollTop += 0.5; 
+            }
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        function updateProgressBarVisual() {
+            let realIdx = currentIndex - CLONE_COUNT;
+            
+            if (currentIndex < CLONE_COUNT) realIdx = totalSlides - (CLONE_COUNT - currentIndex);
+            if (currentIndex >= totalSlides + CLONE_COUNT) realIdx = currentIndex - totalSlides - CLONE_COUNT;
+            
+            if (realIdx < 0) realIdx = 0; 
+
+            const slideProgress = currentSlideTime / SLIDE_DURATION; 
+            const totalProgress = (realIdx + slideProgress) / totalSlides * 100;
+            progressFill.style.width = `${totalProgress}%`;
+        }
+
+        // --- 5. 드래그 컨트롤 ---
+        function handleProgressInput(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const rect = progressTrack.getBoundingClientRect();
+            let clickX = clientX - rect.left;
+            if (clickX < 0) clickX = 0;
+            if (clickX > rect.width) clickX = rect.width;
+
+            const percentage = clickX / rect.width;
+            progressFill.style.width = `${percentage * 100}%`;
+
+            const totalDuration = totalSlides * SLIDE_DURATION;
+            const targetTotalTime = percentage * totalDuration;
+
+            let targetIndex = Math.floor(targetTotalTime / SLIDE_DURATION); 
+            if (targetIndex >= totalSlides) targetIndex = totalSlides - 1;
+
+            const targetLocalTime = targetTotalTime % SLIDE_DURATION;
+            const newCarouselIndex = targetIndex + CLONE_COUNT; 
+            
+            if (newCarouselIndex !== currentIndex) {
+                currentIndex = newCarouselIndex;
+                updatePosition(currentIndex, true);
+                updateText('slide');
+            }
+            currentSlideTime = targetLocalTime;
+        }
+
+        const startDrag = (e) => { isDragging = true; handleProgressInput(e); };
+        const doDrag = (e) => { if (isDragging) handleProgressInput(e); };
+        const endDrag = () => {
+            if (isDragging) {
+                isDragging = false;
+                lastFrameTime = 0; 
+                if (isPlaying) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = requestAnimationFrame(animate);
+                }
+            }
+        };
+
+        progressWrapper.addEventListener('mousedown', startDrag);
+        document.addEventListener('mousemove', doDrag);
+        document.addEventListener('mouseup', endDrag);
+        progressWrapper.addEventListener('touchstart', startDrag, {passive: false});
+        document.addEventListener('touchmove', doDrag, {passive: false});
+        document.addEventListener('touchend', endDrag);
+
+        // --- 6. 버튼 ---
+        function togglePlay() { isPlaying ? stopPlay() : startPlay(); }
+        function startPlay() { if (isPlaying) return; isPlaying = true; playIcon.classList.replace('ri-play-fill', 'ri-pause-fill'); lastFrameTime = 0; animationFrameId = requestAnimationFrame(animate); }
+        function stopPlay() { isPlaying = false; playIcon.classList.replace('ri-pause-fill', 'ri-play-fill'); cancelAnimationFrame(animationFrameId); }
+
+        document.getElementById('playPauseBtn').addEventListener('click', togglePlay);
+        document.getElementById('nextBtn').addEventListener('click', () => moveNext());
+        document.getElementById('prevBtn').addEventListener('click', () => movePrev());
+        document.getElementById('openLyricsBtn').addEventListener('click', () => lyricsOverlay.classList.add('show'));
+        document.getElementById('closeLyricsBtn').addEventListener('click', () => lyricsOverlay.classList.remove('show'));
+
+        let touchStartX = 0;
+        wrapper.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX);
+        wrapper.addEventListener('touchend', e => {
+            if (touchStartX - e.changedTouches[0].screenX > 50) moveNext();
+            else if (e.changedTouches[0].screenX - touchStartX > 50) movePrev();
+        });
+
+        loadData();
+    </script>
+</body>
+</html>
