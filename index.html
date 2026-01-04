@@ -36,79 +36,30 @@
             z-index: -1; pointer-events: none;
         }
 
-        /* --- 랜딩 페이지 오버레이 --- */
+        /* --- 랜딩 페이지 --- */
         #landingPage {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 9999;
-            background-color: #000;
-            overflow: hidden;
-            transition: opacity 0.8s ease, visibility 0.8s ease;
-            cursor: pointer;
+            z-index: 9999; background-color: #000; overflow: hidden;
+            transition: opacity 0.8s ease, visibility 0.8s ease; cursor: pointer;
         }
-
-        /* 랜딩 배경: 3초 동안 ease로 확대 */
         .landing-bg {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-image: url('img/landing.png');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            animation: zoomSlow 3s ease forwards; /* [수정됨] */
+            background-image: url('img/landing.png'); background-size: cover; background-position: center; background-repeat: no-repeat;
+            animation: zoomSlow 3s ease forwards;
         }
-
-        @keyframes zoomSlow {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.2); }
-        }
-
-        /* 랜딩 텍스트: 2초 후 등장, 3초부터 움직임 */
+        @keyframes zoomSlow { 0% { transform: scale(1); } 100% { transform: scale(1.2); } }
         .landing-content {
-            position: absolute;
-            bottom: 25%;
-            left: 0; width: 100%;
-            text-align: center;
-            color: #fff;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            z-index: 2;
-            
-            opacity: 0; /* 초기엔 안 보임 */
-            /* 1. appearText: 2초 딜레이 후 1초간 실행 (2초~3초)
-               2. bounceHint: 3초 딜레이 후 무한 반복 (3초~)
-            */
-            animation: 
-                appearText 1s ease 1s forwards,
-                bounceHint 2s ease-in-out 3s infinite;
+            position: absolute; bottom: 25%; left: 0; width: 100%;
+            text-align: center; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 2;
+            opacity: 0; animation: appearText 1s ease 2s forwards, bounceHint 2s ease-in-out 3s infinite;
         }
+        @keyframes appearText { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes bounceHint { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .landing-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; letter-spacing: 0.5px; }
+        .landing-desc { font-size: 16px; font-weight: 400; opacity: 0.9; }
+        #landingPage.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 
-        /* 텍스트 등장 애니메이션 */
-        @keyframes appearText {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* 클릭 유도 (둥실둥실) 애니메이션 */
-        @keyframes bounceHint {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .landing-title {
-            font-size: 24px; font-weight: 700; margin-bottom: 8px;
-            letter-spacing: 0.5px;
-        }
-
-        .landing-desc {
-            font-size: 16px; font-weight: 400; opacity: 0.9;
-        }
-
-        #landingPage.hidden {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-
-
-        /* --- 기존 앱 스타일 --- */
+        /* --- 레이아웃 --- */
         .device-container {
             width: 100%; max-width: 480px; height: 100dvh; margin: 0 auto; position: relative;
             display: flex; flex-direction: column; justify-content: flex-start;
@@ -117,8 +68,10 @@
         }
 
         .carousel-container {
-            width: 100%; height: 45vh; min-height: 320px; max-height: 450px;
-            margin-bottom: 10px; position: relative; overflow: visible; perspective: 1000px;
+            width: 100%; 
+            height: 45vh; min-height: 320px; max-height: 450px;
+            margin-bottom: 10px; position: relative; overflow: visible; 
+            perspective: 1000px;
             flex-shrink: 0;
         }
 
@@ -130,34 +83,70 @@
             position: relative; z-index: 1; cursor: pointer;
         }
 
+        /* --- [핵심 수정] 3D 카드 스타일 --- */
         .flip-card {
             width: 90%; aspect-ratio: 1/1; position: relative;
             transform-style: preserve-3d;
             transition: transform 0.6s var(--transition-curve), box-shadow 0.5s ease;
             border-radius: 18px;
-            transform: scale(0.85); opacity: 0.6;
-            box-shadow: var(--inactive-shadow);
             pointer-events: none;
-            -webkit-backface-visibility: hidden; backface-visibility: hidden;
+            
+            /* 기본 상태 (Inactive) */
+            transform: scale(0.85) rotateY(0deg); 
+            opacity: 0.6;
+            box-shadow: var(--inactive-shadow);
         }
 
+        /* 1. 활성 상태 (Active) - 기본 앞면 */
         .carousel-item.active .flip-card {
-            opacity: 1; transform: scale(1); box-shadow: var(--active-shadow); z-index: 10;
+            transform: scale(1) rotateY(0deg);
+            opacity: 1;
+            box-shadow: var(--active-shadow);
+            z-index: 10;
             pointer-events: auto;
         }
-        
-        .carousel-item.active .flip-card.flipped { transform: scale(1) rotateY(180deg); }
-        .carousel-item:not(.active) .flip-card.flipped { transform: scale(0.85) rotateY(180deg); }
 
+        /* 2. 활성 상태 (Active) - 뒷면 뒤집힘 */
+        .carousel-item.active .flip-card.flipped {
+            transform: scale(1) rotateY(180deg);
+        }
+
+        /* 3. 비활성 상태 (Inactive) - 뒷면 뒤집힘 */
+        /* 옆에 있는 카드도 뒤집혀 있다면 scale은 작지만 각도는 180도여야 함 */
+        .carousel-item .flip-card.flipped {
+            transform: scale(0.85) rotateY(180deg);
+        }
+
+        /* [중요] 면 공통 스타일 */
         .flip-face {
             position: absolute; width: 100%; height: 100%; top: 0; left: 0;
-            border-radius: 18px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden;
+            border-radius: 18px; 
+            overflow: hidden;
+            
+            /* 핵심: 뒷면일 때 안 보이게 처리 (이게 있어야 앞뒤가 안 겹침) */
+            -webkit-backface-visibility: hidden; 
+            backface-visibility: hidden; 
+            
+            /* 사파리 렌더링 버그 방지 */
             transform: translateZ(0); 
         }
-        .flip-front { z-index: 2; transform: rotateY(0deg); }
-        .flip-back { transform: rotateY(180deg); z-index: 1; background: #fff; }
+
+        /* 앞면: 0도 */
+        .flip-front { 
+            transform: rotateY(0deg); 
+            z-index: 2; /* 기본적으로 앞면이 위 */
+        }
+
+        /* 뒷면: 180도 (미리 뒤집어 놓음) */
+        .flip-back { 
+            transform: rotateY(180deg); 
+            z-index: 1; 
+            background: #fff; 
+        }
+
         .album-art { width: 100%; height: 100%; object-fit: cover; display: block; }
 
+        /* --- 하단 컨텐츠 --- */
         .content-wrapper { 
             width: 100%; padding: 0 24px;
             flex: 1; display: flex; flex-direction: column; gap: 10px;
@@ -290,7 +279,6 @@
     </div>
 
     <script>
-        // --- 설정 ---
         let albumData = [];
         let letterData = [];
         let youtubeUrl = "#"; 
@@ -330,7 +318,6 @@
             landingPage.classList.add('hidden');
         });
 
-        // --- 1. 데이터 로드 ---
         async function loadData() {
             try {
                 const response = await fetch('data.json');
@@ -395,6 +382,7 @@
         function createSlide(data) {
             const div = document.createElement('div');
             div.className = 'carousel-item';
+            div.dataset.albumId = data.id;
 
             div.innerHTML = `
                 <div class="flip-card">
@@ -414,8 +402,17 @@
                 const myIndex = allItems.indexOf(this);
 
                 if (myIndex === currentIndex) {
-                    const card = this.querySelector('.flip-card');
-                    card.classList.toggle('flipped');
+                    // 중앙 클릭 -> 동기화 뒤집기
+                    const isFlipped = this.querySelector('.flip-card').classList.contains('flipped');
+                    const targetId = this.dataset.albumId;
+                    
+                    const sameItems = document.querySelectorAll(`.carousel-item[data-album-id="${targetId}"]`);
+                    sameItems.forEach(item => {
+                        const card = item.querySelector('.flip-card');
+                        if (isFlipped) card.classList.remove('flipped');
+                        else card.classList.add('flipped');
+                    });
+
                     updateText('flip'); 
                 } else if (myIndex > currentIndex) {
                     moveNext();
@@ -440,7 +437,6 @@
             updatePosition(currentIndex, false);
         });
 
-        // --- 2. 텍스트 업데이트 ---
         function updateText(mode = 'slide') {
             const currentItem = document.querySelectorAll('.carousel-item')[currentIndex];
             if (!currentItem) return;
@@ -486,7 +482,6 @@
             if(data) miniArt.src = getImagePath(data.image);
         }
 
-        // --- 3. 이동 및 순간이동 ---
         function updatePosition(index, smooth = true) {
             const items = document.querySelectorAll('.carousel-item');
             if (!items[index]) return;
@@ -548,7 +543,6 @@
             }
         }
 
-        // --- 4. 애니메이션 Loop ---
         function animate(timestamp) {
             if (!isPlaying || isDragging) return;
             
@@ -582,7 +576,6 @@
             progressFill.style.width = `${totalProgress}%`;
         }
 
-        // --- 5. 드래그 컨트롤 ---
         function handleProgressInput(e) {
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const rect = progressTrack.getBoundingClientRect();
@@ -630,7 +623,6 @@
         document.addEventListener('touchmove', doDrag, {passive: false});
         document.addEventListener('touchend', endDrag);
 
-        // --- 6. 버튼 ---
         function togglePlay() { isPlaying ? stopPlay() : startPlay(); }
         function startPlay() { if (isPlaying) return; isPlaying = true; playIcon.classList.replace('ri-play-fill', 'ri-pause-fill'); lastFrameTime = 0; animationFrameId = requestAnimationFrame(animate); }
         function stopPlay() { isPlaying = false; playIcon.classList.replace('ri-pause-fill', 'ri-play-fill'); cancelAnimationFrame(animationFrameId); }
