@@ -29,21 +29,32 @@
             z-index: -1; pointer-events: none;
         }
 
+        /* [구조 수정] Flexbox로 전체 높이 제어 */
         .device-container {
-            width: 100%; max-width: 480px; height: 100dvh; margin: 0 auto; position: relative;
-            display: flex; flex-direction: column; justify-content: flex-start;
+            width: 100%; max-width: 480px; 
+            height: 100dvh; /* 모바일 브라우저 주소창 대응 */
+            margin: 0 auto; 
+            position: relative;
+            display: flex; 
+            flex-direction: column; 
+            /* 안전 영역 확보 */
             padding-top: calc(env(safe-area-inset-top) + 20px);
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: calc(env(safe-area-inset-bottom) + 20px); 
         }
 
-        /* --- 캐러셀 --- */
+        /* --- 캐러셀 (고정 높이 아님, 비율로 설정) --- */
         .carousel-container {
             width: 100%; 
-            height: 380px; 
-            margin-bottom: 20px; 
+            /* 화면 높이의 45% 정도 차지하되 최대/최소 제한 */
+            height: 45vh; 
+            min-height: 320px; 
+            max-height: 450px;
+            
+            margin-bottom: 10px;
             position: relative;
             overflow: visible; 
             perspective: 1000px;
+            flex-shrink: 0; /* 화면 작아져도 찌그러지지 않음 */
         }
 
         .carousel-track {
@@ -51,13 +62,11 @@
         }
 
         .carousel-item {
-            flex: 0 0 60%; 
-            height: 100%;
+            flex: 0 0 60%; height: 100%;
             display: flex; justify-content: center; align-items: center;
             position: relative; z-index: 1; cursor: pointer;
         }
 
-        /* 3D 카드 */
         .flip-card {
             width: 90%; aspect-ratio: 1/1; position: relative;
             transform-style: preserve-3d;
@@ -65,7 +74,11 @@
             border-radius: 18px;
             transform: scale(0.85); opacity: 0.6;
             box-shadow: var(--inactive-shadow);
-            pointer-events: none; /* 부모(carousel-item)에서 클릭 감지 */
+            pointer-events: none;
+            
+            /* [사파리 렌더링 이슈 해결] */
+            -webkit-backface-visibility: hidden; /* 뒷면 깜빡임 방지 */
+            backface-visibility: hidden;
         }
 
         .carousel-item.active .flip-card {
@@ -78,37 +91,57 @@
 
         .flip-face {
             position: absolute; width: 100%; height: 100%; top: 0; left: 0;
-            border-radius: 18px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden;
+            border-radius: 18px; 
+            -webkit-backface-visibility: hidden; backface-visibility: hidden; 
+            overflow: hidden;
+            /* 사파리 둥근 모서리 + transform 버그 방지 */
+            transform: translateZ(0); 
         }
         .flip-front { z-index: 2; transform: rotateY(0deg); }
         .flip-back { transform: rotateY(180deg); z-index: 1; background: #fff; }
         .album-art { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-        /* --- 콘텐츠 --- */
+        /* --- 하단 영역 (Flex로 공간 분배) --- */
         .content-wrapper { 
-            width: 100%; padding: 0 24px;
-            display: flex; flex-direction: column; 
-            margin-bottom: auto; 
+            width: 100%; 
+            padding: 0 24px;
+            flex: 1; /* 남은 공간 모두 차지 */
+            display: flex; 
+            flex-direction: column;
+            gap: 10px; /* 요소 간 최소 간격 */
         }
         
-        .track-info { text-align: center; margin-bottom: 30px; min-height: 60px; }
+        /* 텍스트 정보 */
+        .track-info { 
+            text-align: center; 
+            margin-top: 10px;
+            min-height: 60px; 
+            
+            /* [사파리 텍스트 겹침 해결] */
+            transform: translateZ(0); /* 하드웨어 가속 강제 */
+            -webkit-font-smoothing: antialiased;
+        }
         
         .track-title { 
             font-size: 24px; font-weight: 700; margin-bottom: 6px; 
             text-shadow: 0 1px 2px rgba(255,255,255,0.8); 
-            transition: opacity 0.3s ease; 
+            transition: opacity 0.2s ease;
+            will-change: opacity; /* 브라우저에게 변경 예고 */
         }
         
         .track-artist { 
             font-size: 16px; color: var(--text-secondary); font-weight: 500; 
             transition: opacity 0.2s ease;
+            will-change: opacity;
         }
 
         .fade-out { opacity: 0; }
 
         /* 재생 바 */
         .progress-wrapper { 
-            width: 100%; margin-bottom: 40px; cursor: pointer; padding: 10px 0; user-select: none;
+            width: 100%; 
+            margin-top: 20px; /* 위쪽 여백 */
+            cursor: pointer; padding: 10px 0; user-select: none;
         }
         .progress-track { width: 100%; height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; overflow: hidden; position: relative; }
         .progress-fill { width: 0%; height: 100%; background: var(--text-secondary); border-radius: 3px; pointer-events: none; }
@@ -117,14 +150,22 @@
         /* 컨트롤러 */
         .controls { 
             display: flex; justify-content: center; align-items: center; gap: 30px; 
-            margin-bottom: 40px;
+            margin-top: 10px;
         }
         .btn-control { background: none; border: none; cursor: pointer; color: var(--text-primary); font-size: 30px; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
         .btn-control:active { transform: scale(0.85); }
         .btn-play { font-size: 58px; }
 
-        /* 하단 액션 버튼 */
-        .bottom-actions { display: flex; justify-content: space-between; align-items: center; }
+        /* [핵심] 하단 버튼 (바닥 고정) */
+        .bottom-actions { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            /* 위쪽 요소들과의 공간을 최대로 벌림 (화면이 클 때 바닥으로 붙음) */
+            margin-top: auto; 
+            padding-top: 20px; /* 버튼 위 최소 여백 */
+        }
+        
         .glass-btn {
             background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
@@ -214,7 +255,6 @@
         let letterData = [];
         let youtubeUrl = "#"; 
         
-        // [중요] 왼쪽에 2개 클론 추가 -> 시작 인덱스는 2 (Real 1번)
         const CLONE_COUNT = 2; 
         let currentIndex = CLONE_COUNT; 
         let totalSlides = 0;
@@ -286,16 +326,16 @@
 
             track.innerHTML = '';
             
-            // [Clone Last] 뒤쪽 2개 복사해서 앞에 붙임 (N-1, N)
+            // Clone Last 2
             track.appendChild(createSlide(albumData[totalSlides - 2]));
             track.appendChild(createSlide(albumData[totalSlides - 1]));
             
-            // [Real Items]
+            // Real Items
             albumData.forEach((item) => {
                 track.appendChild(createSlide(item));
             });
             
-            // [Clone First] 앞쪽 2개 복사해서 뒤에 붙임 (1, 2)
+            // Clone First 2
             track.appendChild(createSlide(albumData[0]));
             track.appendChild(createSlide(albumData[1]));
 
@@ -322,16 +362,13 @@
                 </div>
             `;
             
-            // [핵심 수정] 클릭 이벤트 로직 정상화
             div.addEventListener('click', function() {
                 if (isDragging) return;
 
-                // 트랙 내에서의 정확한 인덱스 찾기
                 const allItems = Array.from(track.children);
                 const myIndex = allItems.indexOf(this);
 
                 if (myIndex === currentIndex) {
-                    // 중앙 앨범 클릭 -> 뒤집기 토글
                     const card = this.querySelector('.flip-card');
                     card.classList.toggle('flipped');
                     updateText('flip'); 
@@ -365,7 +402,6 @@
 
             let realDataIndex = currentIndex - CLONE_COUNT;
             
-            // 루프 경계 처리
             if (currentIndex < CLONE_COUNT) {
                 realDataIndex = totalSlides + (currentIndex - CLONE_COUNT);
             } else if (currentIndex >= totalSlides + CLONE_COUNT) {
@@ -422,7 +458,8 @@
             } else {
                 track.style.transition = 'none';
                 track.style.transform = `translateX(${targetTranslate}px)`;
-                void track.offsetWidth; // Force Reflow
+                void track.offsetWidth; 
+                track.style.transition = ''; 
             }
 
             items.forEach((item, i) => {
@@ -452,19 +489,17 @@
 
         function checkInfiniteLoop() {
             let jumped = false;
-            // 오른쪽 끝(N+2)에 도달 -> 왼쪽(2)로 이동
             if (currentIndex >= totalSlides + CLONE_COUNT) {
                 currentIndex = CLONE_COUNT; 
                 jumped = true;
             } 
-            // 왼쪽 끝(1)에 도달 -> 오른쪽(N+1)로 이동
             else if (currentIndex < CLONE_COUNT) {
                 currentIndex = totalSlides + CLONE_COUNT - 1; 
                 jumped = true;
             }
 
             if (jumped) {
-                updatePosition(currentIndex, false); // No animation
+                updatePosition(currentIndex, false); 
             }
         }
 
